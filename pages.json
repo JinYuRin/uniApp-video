@@ -1,0 +1,247 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index", //在某页面设置的导航栏的生命周期也是和这个页面绑定的，也就是说存在很多原生设置
+			"style": {
+				"app-plus": {
+					"titleNView": {
+						"searchInput": {
+							"align": "left",
+							"backgroundColor": "#F6F7F8",
+							"borderRadius": "40px",
+							// "disabled": true,
+							"placeholder": "精彩热搜",
+							"placeholderColor": "#959FA0"
+						},
+						"buttons": [{
+							"float": "right",
+							"text": "搜索",
+							"fontSize": "15px",
+							"color": "#959FA0",
+							"colorPressed": "#333"
+						}]
+					}
+				}
+			}
+		}, {
+			"path": "pages/cate/cate",
+			"style": {
+				"enablePullDownRefresh": true, // 允许下拉刷新事件
+				"app-plus": {
+					"titleNView": {
+						"searchInput": {
+							"align": "left",
+							"backgroundColor": "#F6F7F8",
+							"borderRadius": "40px",
+							// "disabled": true,
+							"placeholder": "精彩热搜",
+							"placeholderColor": "#959FA0"
+						}
+					}
+				}
+			}
+		}, {
+			"path": "pages/my/my",
+			"style": {
+				"navigationBarTitleText": "",
+				"app-plus": {
+					"titleNView": {
+						"buttons": [{
+							"color": "#333333",
+							"colorPressed": "#333333",
+							"float": "right",
+							"fontSize": "44rpx",
+							"fontSrc": "/static/iconfont.ttf",
+							"text": "\ue695"
+						}, {
+							"color": "#333333",
+							"colorPressed": "#333333",
+							"float": "right",
+							"fontSize": "44rpx",
+							"fontSrc": "/static/iconfont.ttf",
+							"text": "\ue61a"
+						}]
+					}
+				}
+			}
+		}, {
+			"path": "pages/create/create",
+			"style": {
+				"navigationBarTitleText": "发布作品",
+				"app-plus": {
+					"titleNView": {
+						"buttons": [{
+							"text": "发布",
+							"fontSize": "14px",
+							"color": "#FB7299",
+							"float": "right",
+							"colorPressed": "#FB85A7"
+						}]
+					}
+				}
+			}
+		}, {
+			"path": "pages/userVideo/userVideo", // 记得添加返回逻辑
+			"style": {
+				"app-plus": {
+					"titleNView": false
+				},
+				"enablePullDownRefresh": true // 下拉刷新要在这里配置，触底加载好像不用
+			}
+
+		}, {
+			"path": "pages/userFav/userFav",
+			"style": {
+				"navigationBarTitleText": "我的收藏" // 居然忘了加上下拉刷新沃日
+			}
+
+		}, {
+			"path": "pages/userVideoList/userVideoList",
+			"style": {
+				"navigationBarTitleText": "视频列表"
+			}
+
+		}, {
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "",
+				"app-plus": {
+					"titleNView": false
+				},
+				"enablePullDownRefresh": false
+			}
+
+		}, {
+			"path": "pages/userSpace/userSpace",
+			"style": {
+				"navigationBarTitleText": "",
+				"enablePullDownRefresh": false,
+				"app-plus": {
+					"titleNView": {
+						"type": "transparent",
+						"buttons": [{
+							"float": "right",
+							"type": "menu"
+						}]
+					}
+				}
+			}
+
+		}, {
+			"path": "pages/detailVideo/detailVideo",
+			"style": {
+				"navigationBarTitleText": "",
+				"enablePullDownRefresh": false,
+				"app-plus": {
+					"titleNView": false,
+					"subNVues": [{
+						"id": "top",
+						"path": "pages/detailVideo/subNVue/video",
+						"style": {
+							"position": "dock",
+							"dock": "top",
+							"width": "100%",
+							"height": "225px"
+						}
+					}]
+				}
+			}
+
+		}, {
+			"path": "pages/userSet/userSet",
+			"style": {
+				"navigationBarTitleText": "设置",
+				"enablePullDownRefresh": false
+			}
+
+		}, {
+			"path": "pages/update/update",
+			"style": {
+				"navigationBarTitleText": "更新作品",
+				"app-plus": {
+					"titleNView": {
+						"buttons": [{
+							"text": "更新",
+							"fontSize": "14px",
+							"color": "#FB7299",
+							"float": "right",
+							"colorPressed": "#FB85A7"
+						}]
+					}
+				},
+				"enablePullDownRefresh": false
+			}
+
+		}, {
+			"path": "pages/list/list",
+			"style": {
+				// "navigationBarTitleText": "",
+				"enablePullDownRefresh": true, // 下拉刷新要在这里配置，触底加载好像不用
+				"app-plus": {
+					"titleNView": false
+				}
+			}
+		}, {
+			"path": "pages/userFollow/userFollow",
+			"style": {
+				"navigationBarTitleText": "我的关注",
+				"enablePullDownRefresh": true
+			}
+
+		}, {
+			"path": "pages/userHistory/userHistory",
+			"style": {
+				"navigationBarTitleText": "历史记录",
+				"app-plus": {
+					"titleNView": {
+						"buttons": [{
+							"text": "清空",
+							"fontSize": "14px",
+							"color": "#FB7299",
+							"float": "right",
+							"colorPressed": "#FB85A7"
+						}]
+					}
+				},
+				"enablePullDownRefresh": true
+			}
+
+		}
+	    ,{
+            "path" : "pages/updateUser/updateUser",
+            "style" :                                                                                    
+            {
+                "navigationBarTitleText": "",
+                "enablePullDownRefresh": false
+            }
+            
+        }
+    ],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "突围TV",
+		"navigationBarBackgroundColor": "#FFFFFF",
+		"backgroundColor": "#FFFFFF"
+	},
+	"tabBar": {
+		"borderStyle": "black",
+		"selectedColor": "#FB7299",
+		"color": "#444444",
+		"list": [{
+			"pagePath": "pages/index/index",
+			"iconPath": "static/tabbar/find.png",
+			"selectedIconPath": "static/tabbar/find-selected.png",
+			"text": "发现"
+		}, {
+			"pagePath": "pages/cate/cate",
+			"iconPath": "static/tabbar/cate.png",
+			"selectedIconPath": "static/tabbar/cate-selected.png",
+			"text": "分类"
+		}, {
+			"pagePath": "pages/my/my",
+			"iconPath": "static/tabbar/my.png",
+			"selectedIconPath": "static/tabbar/my-selected.png",
+			"text": "我的"
+		}]
+	}
+}

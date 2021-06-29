@@ -1,0 +1,491 @@
+<template>
+	<view class="bg-dark">
+		<video id="video" ref="video" :src="src" :poster="poster" :controls="false" :show-center-play-btn="false"
+		 :show-fullscreen-btn="false" :show-progress="false" :enable-progress-gesture="false" style="width: 750rpx;height: 225px;"
+		 @fullscreenchange="fullscreenchange" @timeupdate="timeupdate" @play="isplay = true" @pause="isplay = false">
+			<!-- videoBox 脱离文档流 且内部只有 -->
+			<view class="position-absolute flex align-center justify-center" :style="videoBox">
+				<!-- 点击蒙版 -->
+				<view @touchstart="touchstart" @touchmove="touchmove" @touchend="touchend" class="position-absolute right-0 left-0"
+				 :style="modalStyle"></view>
+				<!-- 锁定按钮 -->
+				<view v-if="(showStatusBar||lockScreenStatus) && fullScreenStatus" class="position-absolute right-0 top-0 bottom-0 flex justify-center align-center"
+				 style="width: 50px;">
+					<view @click="lockScreen" class="rounded flex align-center justify-center" style="width: 50px;height: 50px;background-color: rgba(0,0,0,0.4);">
+						<text :class="lockScreenStatus?'text-main':'text-white'" class="iconfont font-md text-white">&#xe620;</text>
+					</view>
+				</view>
+				<!-- 提示框 -->
+				<view class="flex justify-center align-center" style="width: 100%;height: 225px;">
+					<view v-if="showToast" class="p-2 rounded-circle" style="background-color: rbga(255,255,255,0.2);">
+						<!-- <text class="font-md text-white">{{ currentTimeDValue >= 0 ? '前进' : '后退' }}{{ currentTimeDValue | formatCurrentTimeDValue }}秒</text> -->
+						<text class="font-md text-white">{{ currentTime | formatTime }}/{{ duration | formatTime }}</text>
+					</view>
+				</view>
+				<!-- 全屏状态栏顶部 -->
+				<view v-if="showStatusBar && fullScreenStatus" class="bg-main video-bg-top position-absolute top-0 left-0 right-0"
+				 style="width: 100%; height: 44px;">
+					<view>
+						<!-- <view class="bg-main" :style="'height: ' + statusBarHeight + 'px;'"></view> -->
+						<!-- 定位是fixed，必须去除状态栏的高度，因为视频播放会显示状态栏 -->
+						<view style="height: 44px;" class="flex align-center">
+							<!-- 为什么会居左呢，因为flex-c布局，从上到下，水平居中 -->
+							<FIconBtn @click="fullOrExitScreen" :icon="'\ue612'"></FIconBtn>
+							<text class="text-white ml-2 font-lg">视频标题</text>
+						</view>
+					</view>
+				</view>
+				<!-- 全屏状态栏底部 -->
+				<view style="height: 88px;" v-if="showStatusBar && fullScreenStatus" class="video-bg-bottom position-absolute bottom-0 left-0 right-0">
+					<view style="height: 44px;margin: 0 10px;" class="">
+						<FSlider :fullScreenStatus="fullScreenStatus" @slide="slide" :currentTime="currentTime" :duration="duration"></FSlider>
+					</view>
+					<view class="flex align-center justify-between">
+						<view style="height: 44px;" class="flex align-center">
+							<FIconBtn @click="playOrPause" :icon="isplay ? '\ue605' : '\ue63a'"></FIconBtn>
+							<view class="flex justify-center align-center" style="height: 44px;width: 80px;">
+								<text class="font-sm text-white">{{ currentTime | formatTime }}/{{ duration | formatTime }}</text>
+							</view>
+							<FIconBtn :icon="'\ue697'"></FIconBtn>
+						</view>
+						<view style="height: 44px;" class="px-3 flex align-center">
+							<text @click="openPicker('rate')" class="text-white mr-5">{{ rateList[rateIndex] }}X</text>
+							<text @click="openPicker('def')" class="text-white mr-5">{{ defList[defIndex] }}P</text>
+							<text @click="openPicker('part')" class="text-white mr-5">选集</text>
+						</view>
+					</view>
+				</view>
+				<!-- 需要盖住状态条 -->
+				<FPicker @click="changePicker" v-if="showPicker && fullScreenStatus && pickerType === 'rate'" type="rate" :list="this.rateList"
+				 :current="this.rateIndex"></FPicker>
+				<FPicker @click="changePicker" v-if="showPicker && fullScreenStatus && pickerType === 'def'" type="def" :list="this.defList"
+				 :current="this.defIndex"></FPicker>
+				<FPicker @click="changePicker" v-if="showPicker && fullScreenStatus && pickerType === 'part'" type="part" :list="this.partList"
+				 :current="this.partIndex"></FPicker>
+			</view>
+		</video>
+
+		<!-- 非全屏状态栏顶部 -->
+		<view v-if="showStatusBar" class="video-bg-top position-fixed top-0 left-0 right-0">
+			<view :style="'height: ' + statusBarHeight + 'px;'"></view>
+			<!-- 定位是fixed，必须去除状态栏的高度，因为视频播放会显示状态栏 -->
+			<view style="height: 44px;" class="flex align-center">
+				<!-- 为什么会居左呢，因为flex-c布局，从上到下，水平居中 -->
+				<FIconBtn @click="back" :icon="'\ue612'"></FIconBtn>
+			</view>
+		</view>
+		<!-- 非全屏状态栏底部 -->
+		<view v-if="showStatusBar && !fullScreenStatus" class="video-bg-bottom position-fixed bottom-0 left-0 right-0">
+			<view style="height: 44px;" class="flex align-stretch">
+				<!-- 你意思是说默认是flex align-stretch会使得在同一水平线上占满！！
+					align-items:stretch 既不是center也不是flex-end之类的，而是使得整个flex盒子的高度全部占满而不是start/end/center
+					 -->
+				<FIconBtn @click="playOrPause" :icon="isplay ? '\ue605' : '\ue63a'"></FIconBtn>
+				<view class="flex-1">
+					<!-- 这极有可能是flex-1和宽度的问题
+						 width: 100%;flex-1是代表占满一定比例的宽度
+						 当只有一个元素时就默认占满？这他妈的就是NVue的傻逼规则吧我草
+						 默认了flex布局了沃日，太头痛了
+						 -->
+					<!-- <view style="height: 44px;" class="flex-1 flex align-center position-relative"> -->
+					<!-- 默认flex，flex-1使其占满整个空间了 -->
+					<FSlider :fullScreenStatus="fullScreenStatus" @slide="slide" :currentTime="currentTime" :duration="duration"></FSlider>
+					<!-- 害,傻逼了slide(timePercent) -->
+					<!--position-absolute脱离文档流直接在空间中定位 至于如何使用拖动事件呢，嘿嘿，又能学多一招了 -->
+					<!-- <view class="position-absolute bg-main rounded-circle" style="width: 14px;height: 14px;left:100px ;"></view>
+						</view> -->
+				</view>
+				<view class="flex justify-center align-center" style="height: 44px;width: 80px;">
+					<text class="font-sm text-white">{{ currentTime | formatTime }}/{{ duration | formatTime }}</text>
+					<!-- 过滤器的使用方法currentTime | formatTime -->
+				</view>
+				<!-- flex-1如果只有一个元素flex就会占据剩下所有空间 多个元素flex就会分配空间 -->
+				<FIconBtn @click="fullOrExitScreen" :icon="'\ue800'"></FIconBtn>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script>
+	// 去看subNVue文档，自定义字体引入
+	const d = weex.requireModule('dom');
+	const demoList = [{
+		index: 0,
+		title: "优化空数据默认显示",
+		list: [{
+			name: "标清",
+			value: "SD",
+			url: "https://douyinzcmcss.oss-cn-shenzhen.aliyuncs.com/%E8%AF%BE%E6%97%B61.%20%E9%A1%B9%E7%9B%AE%E4%BB%8B%E7%BB%8D.mp4"
+		}, {
+			name: "高清",
+			value: "HD",
+			url: "https://douyinzcmcss.oss-cn-shenzhen.aliyuncs.com/%E8%AF%BE%E6%97%B61.%20%E9%A1%B9%E7%9B%AE%E4%BB%8B%E7%BB%8D.mp4"
+		}, {
+			name: "超清",
+			value: "FHD",
+			url: "https://douyinzcmcss.oss-cn-shenzhen.aliyuncs.com/%E8%AF%BE%E6%97%B61.%20%E9%A1%B9%E7%9B%AE%E4%BB%8B%E7%BB%8D.mp4"
+		}],
+	}, {
+		index: 0,
+		title: "2018年平昌冬",
+		list: [{
+			name: "标清",
+			value: "SD",
+			url: "https://douyinzcmcss.oss-cn-shenzhen.aliyuncs.com/%E8%AF%BE%E6%97%B61.%20%E9%A1%B9%E7%9B%AE%E4%BB%8B%E7%BB%8D.mp4"
+		}],
+	}]
+	import FIconBtn from './fIconBtn.vue';
+	import FSlider from './fSlider.vue';
+	import FPicker from './fPicker.vue';
+	export default {
+		computed: {
+			// 计算全屏或者非全屏的蒙版高宽
+			videoBox() {
+				console.log(this.windowHeight, this.windowWidth);
+				return this.fullScreenStatus ? `width:${this.windowHeight}px;height:${this.windowWidth};` :
+					'width:750rpx;height:225px;';
+			},
+			modalStyle() {
+				let top = this.statusBarHeight + 44;
+				return `top:${top}px;bottom:${this.fullScreenStatus ? 88 : 44}px;`;
+			}
+		},
+		watch: {
+			// 发生时间跳转currentTimeDValue,showToast
+			currentTimeDValue: function() {
+				this.showToast = true;
+			},
+			// 监听播放状态 存在effectWatch记得吗
+			isplay: function(val, oldVal) {
+				// 由暂停变成播放
+				if (val) {
+					// 播放状态，启动showStatusBar的计时器
+					this.timerForStatusBar();
+					// 暂停状态，showStatusBar
+				} else {
+					this.showStatusBar = true;
+				}
+			}
+		},
+		provide() {
+			//provide写法等同于data的写法
+			return {
+				v: this
+			};
+		},
+		mounted() {
+			// console.log(this.$refs.time);获取dom节点必须在挂载之后，其他操作可以在created之后
+		},
+		components: {
+			FIconBtn,
+			FSlider,
+			FPicker
+		},
+		data() {
+			return {
+				lockScreenStatus: false,
+				//选择器相关data
+				pickerType: '', //选择器的类型rate/part/def
+				rateIndex: 1, //默认速率Index
+				partIndex: 0, //默认集数Index
+				defIndex: 0, //默认分辨率Index
+				rateList: [0.5, 1.0, 1.5, 2.0], //可选速率
+				defList: [240, 360, 720, 1080], //可选分辨率
+				partList: [1, 2], //可选集数
+				videoList: demoList,
+				showPicker: false, //显示选择器
+
+				fullScreenStatus: false, //全屏状态
+
+				//滑动和点击相关data
+				startX: 0, //屏幕滑动开始的位置
+				slideX: 0, //屏幕滑动的距离
+				slideStatus: false, // 滑动状态
+				dbCount: 0, // 记录屏幕单击次数
+
+				showStatusBar: true, // 显示播放状态栏
+				timerForStatusBar: function() {
+					// 执行播放状态栏隐藏的定时器
+					// timeOut得到setTimeout的返回值来标记这个定时器
+					let timeOutForStatusBar = setTimeout(() => {
+						this.showStatusBar = false;
+					}, 3000);
+					this.timeOutForStatusBar = timeOutForStatusBar;
+				},
+				timeOutForStatusBar: null, // 播放状态栏的定时器
+				timerForVideoClick: function() {
+					// 屏幕单击的定时器
+					let timeOutForVideoClick = setTimeout(() => {
+						this.dbCount = 0;
+						// 单击屏幕
+						clearTimeout(this.timeOutForStatusBar);
+						// 如showStatusBar显示就隐藏
+						if (this.showStatusBar) {
+							this.showStatusBar = false;
+							return;
+						}
+						// 如showStatusBar隐藏就显示
+						this.showStatusBar = true;
+						// 只有播放状态下才重新开始清除状态栏的定时器
+						if (this.isplay) {
+							this.timerForStatusBar();
+						}
+					}, 300);
+					this.timeOutForVideoClick = timeOutForVideoClick;
+				},
+				timeOutForVideoClick: null, // 屏幕单击的定时器，需要在双击时清除掉
+
+				showToast: false, // 显示进度Toast
+
+				//时间相关data
+				currentTimeDValue: 0, // 时间差值
+				duration: 0, // 总时长
+				currentTime: 0, // 当前时间
+
+				//系统data
+				statusBarHeight: 0, // 系统的状态栏高度
+				windowWidth: 0, // 屏幕宽度
+
+				isplay: false, // 播放状态
+				poster: 'https://douyinzcmcss.oss-cn-shenzhen.aliyuncs.com/shengchengqi/datapic/1.jpg',
+				src: 'https://douyinzcmcss.oss-cn-shenzhen.aliyuncs.com/%E8%AF%BE%E6%97%B61.%20%E9%A1%B9%E7%9B%AE%E4%BB%8B%E7%BB%8D.mp4'
+			};
+		},
+		created() {
+			//还可以获取状态栏高度的啊
+			let statusBarHeight = uni.getSystemInfoSync().statusBarHeight;
+			let windowWidth = uni.getSystemInfoSync().windowWidth;
+			let windowHeight = uni.getSystemInfoSync().windowHeight;
+			this.statusBarHeight = statusBarHeight;
+			this.windowWidth = windowWidth;
+			this.windowHeight = windowHeight;
+
+			// 添加自定义图标
+			d.addRule('fontFace', {
+				fontFamily: 'iconfont',
+				src: "url('https://at.alicdn.com/t/font_1419176_mzo8rsjxi4c.ttf')"
+			});
+		},
+		filters: {
+			//过滤器是vue内部的属性来的，格式化时间
+			formatTime(result) {
+				var h = Math.floor(result / 3600) < 10 ? '0' + Math.floor(result / 3600) : Math.floor(result / 3600);
+				var m = Math.floor((result / 60) % 60) < 10 ? '0' + Math.floor((result / 60) % 60) : Math.floor((result / 60) % 60);
+				var s = Math.floor(result % 60) < 10 ? '0' + Math.floor(result % 60) : Math.floor(result % 60);
+				return (result = result > 3600 ? h + ':' + m + ':' + s : m + ':' + s);
+			}
+			// formatCurrentTimeDValue(result) {
+			// 	return result.toFixed(1);
+			// }
+		},
+		methods: {
+			// 打开选择器
+			openPicker(type) {
+				// 防止播放状态栏消失
+				clearTimeout(this.timeOutForStatusBar);
+				// console.log(this.showPicker)
+				this.showPicker = !this.showPicker;
+				this.pickerType = type;
+			},
+			// 改变选择器的内容
+			changePicker(payload) {
+				console.log(payload);
+				const {
+					index,
+					type
+				} = payload;
+				switch (type) {
+					case 'rate':
+						this.rateIndex = index;
+						this.$refs.video.playbackRate(this.rateList[index])
+						break;
+					case 'def':
+						this.defIndex = index;
+						console.log(this.videoList[0].list[index].url)
+						this.src = this.videoList[0].list[index].url
+						this.$refs.video.seek(0)
+						this.$refs.video.play()
+						break;
+						// 改变视频集数
+					case 'part':
+						this.partIndex = index;
+						console.log(this.videoList[index].list[0].url)
+						this.src = this.videoList[index].list[0].url
+						this.$refs.video.seek(0)
+						this.$refs.video.play()
+						break;
+				}
+			},
+			touchstart(e) {
+				if (this.lockScreenStatus) {
+					return
+				}
+				this.screenSlide(e, 'start');
+			},
+			touchmove(e) {},
+			touchend(e) {
+				if (this.lockScreenStatus) {
+					return
+				}
+				// 计算slideX滑动距离
+				this.slideX = e.changedTouches[0].screenX - this.startX;
+				// slideX不为0看做开始滑动
+				if (this.slideX !== 0) {
+					this.screenSlide(e, 'end');
+					this.showStatusBar = true;
+				}
+				// slideX为0看做点击
+				if (this.slideX === 0) {
+					this.dbCount++;
+					switch (this.dbCount) {
+						case 1:
+							// 选择器存在时关闭选择器
+							if (this.showPicker) {
+								this.showPicker = false
+								this.dbCount = 0;
+							} else {
+								// 单击操作
+								this.timerForVideoClick();
+							}
+							break;
+						case 2:
+							// 双击时单击计时器被取消，执行播放暂停操作
+							clearTimeout(this.timeOutForVideoClick);
+							this.playOrPause();
+							// dbCount归零重新计算
+							this.dbCount = 0;
+							break;
+					}
+				}
+			},
+			// 屏幕滑动，不能过渡优化和slide(payload)混用
+			screenSlide(e, type) {
+				// 屏幕开始滑动时只需要记录screenX
+				if (type === 'start') {
+					this.startX = e.changedTouches[0].screenX;
+					clearTimeout(this.timeOutForStatusBar);
+				} else {
+					this.slideStatus = true;
+					this.$refs.video.pause();
+					// // 原本的半分比+得出的百分比 >1->=1 <0->=0 0到1之间不改
+					let timePercent = this.currentTime / this.duration + this.slideX / this.windowWidth / 10;
+					if (timePercent > 1) {
+						timePercent = 1;
+					}
+					if (timePercent < 0) {
+						timePercent = 0;
+					}
+					// // 计算好新的时长后跳转
+					let newCurrentTime = this.duration * timePercent;
+					this.$refs.video.seek(newCurrentTime);
+					// 滑动结束后开始播放并准备关闭Toast
+					if (type === 'end') {
+						this.slideStatus = false;
+						this.$refs.video.play();
+						setTimeout(() => {
+							this.showToast = false;
+						}, 1000);
+					}
+				}
+			},
+			// 滑动进度条
+			slide(payload) {
+				// 滑动进度条清除计时器
+				clearTimeout(this.timeOutForStatusBar);
+				// 得到新时间进行跳转
+				let newCurrentTime = this.duration * payload.timePercent;
+				this.$refs.video.seek(newCurrentTime);
+				// 时间差currentTimeDValue应该在start开始计算,end的时候才得到时差
+				switch (payload.type) {
+					// 开始slideStatus滑动状态
+					case 'start':
+						this.slideStatus = true;
+						this.$refs.video.pause();
+						break;
+						//end后结束slideStatus滑动状态并定时隐藏Toast
+					case 'end':
+						this.slideStatus = false;
+						this.$refs.video.play();
+						setTimeout(() => {
+							this.showToast = false;
+						}, 1000);
+						break;
+				}
+				// 只有start和move也就是处于slideStatus且
+				// 时间差currentTimeDValue不为0才能得到currentTimeDValue,监听currentTimeDValue并显示Toast
+				if (this.slideStatus && newCurrentTime - this.currentTime !== 0) {
+					this.currentTimeDValue = newCurrentTime - this.currentTime;
+				}
+				// console.log(this.currentTimeDValue);
+				// 先得到时间差currentTimeDValue后更新currentTime
+				this.currentTime = newCurrentTime;
+			},
+			fullscreenchange(e) {
+				console.log(e.detail.fullScreen);
+				console.log('变成全屏了');
+				this.fullScreenStatus = e.detail.fullScreen;
+				console.log(this.fullScreenStatus);
+			},
+			// 监听播放得到currentTime和duration
+			timeupdate(e) {
+				// console.log(e);
+				this.currentTime = parseInt(e.detail.currentTime);
+				this.duration = parseInt(e.detail.duration);
+				// this.time = this.currentTime + '/' + this.duration;
+			},
+			// 返回上一个页面
+			back() {
+				uni.navigateBack({
+					delta: 1
+				});
+			},
+			// 控制播放暂停
+			playOrPause() {
+				// 播放
+				if (!this.isplay) {
+					this.isplay = true;
+					this.$refs.video.play();
+					return;
+				}
+				// 暂停 需要关闭计时器
+				clearTimeout(this.timeOutForStatusBar);
+				this.isplay = false;
+				// ref="video"
+				// video居然要抓取节点来操作，可以在mounted里抓取节点
+				this.$refs.video.pause();
+			},
+			// 全屏显示
+			fullOrExitScreen() {
+				if (this.fullScreenStatus) {
+					this.$refs.video.exitFullScreen();
+					return;
+				}
+				this.$refs.video.requestFullScreen();
+			},
+			lockScreen() {
+				this.lockScreenStatus = !this.lockScreenStatus
+				clearTimeout(this.timeOutForStatusBar)
+				this.showStatusBar = !this.lockScreenStatus
+			},
+		}
+
+	};
+</script>
+
+<style>
+	.video-btn {
+		width: 44px;
+		height: 44px;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.video-bg-top {
+		background-image: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5));
+	}
+
+	.video-bg-bottom {
+		background-image: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5));
+	}
+</style>
